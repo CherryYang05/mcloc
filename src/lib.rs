@@ -1,4 +1,4 @@
-use std::{error::Error, fs::metadata, time::Instant};
+use std::{error::Error, fs::{metadata, self}, time::Instant, collections::VecDeque};
 
 use cloc_result::ClocResult;
 
@@ -8,7 +8,7 @@ pub mod file;
 pub mod print;
 pub mod test;
 
-// 命令行信息结构体
+// 命令行信息结构体，暂且类型为 String
 pub struct Config {
     pub file_path: Vec<String>,
     pub dir_path: Vec<String>,
@@ -56,7 +56,26 @@ impl Config {
 }
 
 pub fn run(config: Config) -> Result<ClocResult, Box<dyn Error>> {
-    // 将目录递归展开
+    // 将目录递归展开，使用队列(crates.io 中有 "walkDir" 这个 crate，这里我们先手动实现)
+    let mut queue: VecDeque<String> = VecDeque::new();
+    for i in config.dir_path.iter() {
+        queue.push_back(i.clone());
+    }
+
+    while !queue.is_empty() {
+        let cur_dir = queue.pop_front().unwrap();
+        let dir = fs::read_dir(cur_dir).unwrap();
+        dir.for_each(|file|{
+            let file = file.unwrap();
+            if file.metadata().unwrap().is_dir() {
+                queue.push_back(file.path().to_string_lossy().to_string());
+            }
+            if file.metadata().unwrap().is_file() {
+                todo!()
+            }
+        });
+    }
+
 
     for file in config.file_path.iter() {
         let file_type: Vec<_> = file.split('.').collect();
