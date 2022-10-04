@@ -17,5 +17,5 @@ fn main() {
         }
     };
 
-    print_res(cloc_result);
+    print_res(&cloc_result);
 }

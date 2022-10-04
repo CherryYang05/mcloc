@@ -55,7 +55,7 @@ impl Config {
     }
 }
 
-pub fn run(config: Config) -> Result<ClocResult, Box<dyn Error>> {
+pub fn run(mut config: Config) -> Result<ClocResult, Box<dyn Error>> {
     // 将目录递归展开，使用队列(crates.io 中有 "walkDir" 这个 crate，这里我们先手动实现)
     let mut queue: VecDeque<String> = VecDeque::new();
     for i in config.dir_path.iter() {
@@ -69,24 +69,14 @@ pub fn run(config: Config) -> Result<ClocResult, Box<dyn Error>> {
             let file = file.unwrap();
             if file.metadata().unwrap().is_dir() {
                 queue.push_back(file.path().to_string_lossy().to_string());
+                config.dir_path.push(file.file_name().to_string_lossy().to_string());
             }
             if file.metadata().unwrap().is_file() {
-                todo!()
+                config.file_path.push(file.path().to_string_lossy().to_string());
             }
         });
     }
 
-
-    for file in config.file_path.iter() {
-        let file_type: Vec<_> = file.split('.').collect();
-        if file_type.len() < 2 {
-            println!("忽略文件：{}", file);
-        } else {
-            if file_type[file_type.len() - 1] == "rs" {
-                println!("该文件为 Rust 文件");
-            }
-        }
-    }
     calc_file(config)
     // Ok(calc_file(config)?)
 }
@@ -94,7 +84,22 @@ pub fn run(config: Config) -> Result<ClocResult, Box<dyn Error>> {
 pub fn calc_file(config: Config) -> Result<ClocResult, Box<dyn Error>> {
     let mut cloc_result = ClocResult::new();
     let time_start = Instant::now();
+
+    for file in config.file_path.iter() {
+        let file_type: Vec<_> = file.split('.').collect();
+        if file_type.len() < 2 {
+            cloc_result.ignored_file_num += 1;
+            println!("忽略文件：{}", file);
+        } else {
+            if file_type[file_type.len() - 1] == "rs" {
+                println!("该文件为 Rust 文件");
+            }
+            cloc_result.file_num += 1;
+        }
+    }
+
     for item in config.file_path.iter() {
+        println!("当前文件为 {}", item);
         let file = std::fs::read_to_string(item)?;
         // thread::sleep(Duration::new(1, 0));
         let lines = file
@@ -109,3 +114,8 @@ pub fn calc_file(config: Config) -> Result<ClocResult, Box<dyn Error>> {
     println!("总用时：{:.3?}", time_duration);
     Ok(cloc_result)
 }
+
+// 处理文件后缀，包括检测语言
+// pub fn check_suffix() -> Result<ClocResult, Box<dyn Error>> {
+
+// }
