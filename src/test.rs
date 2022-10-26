@@ -1,5 +1,5 @@
 use std::{
-    collections::{VecDeque},
+    collections::VecDeque,
     fs::{self},
 };
 
@@ -49,7 +49,10 @@ fn queue() {
             let file = file.unwrap();
             if file.metadata().unwrap().is_dir() {
                 queue.push_back(file.path().to_string_lossy().to_string());
-                println!("{} is a dir", file.file_name().to_string_lossy().to_string());
+                println!(
+                    "{} is a dir",
+                    file.file_name().to_string_lossy().to_string()
+                );
             }
         });
     }

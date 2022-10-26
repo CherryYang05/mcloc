@@ -1,11 +1,8 @@
-use std::time::Duration;
-
-use crate::file::FileInfo;
-
+use std::{path::PathBuf, time::Duration};
 
 // 代码统计结果结构体
 pub struct ClocResult {
-    pub each_file: Vec<FileInfo>,
+    pub each_file: Vec<PathBuf>,
     pub dir_num: usize,
     pub file_num: usize,
     pub file_type_num: usize,
