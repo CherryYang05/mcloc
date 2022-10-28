@@ -1,12 +1,33 @@
-use std::{collections::VecDeque, error::Error, fs, path::PathBuf, time::Instant};
+#[macro_use]
+extern crate lazy_static;
+
+use std::{
+    collections::{HashMap, VecDeque},
+    fs::{self, read_to_string},
+    path::PathBuf,
+    time::Instant,
+};
 
 use cloc_result::ClocResult;
+use errors::ClocError;
+
+use crate::cloc_result::TypeResult;
 
 pub mod cloc_result;
-pub mod error;
+pub mod errors;
 pub mod file;
 pub mod print;
 pub mod test;
+
+lazy_static! {
+    pub static ref LANGUAGE_TYPE: HashMap<String, String> = HashMap::from([
+        (String::from("rs"), String::from("Rust")),
+        (String::from("c"), String::from("C")),
+        (String::from("cpp"), String::from("C++")),
+        (String::from("java"), String::from("Java")),
+        (String::from("py"), String::from("Python")),
+    ]);
+}
 
 // 命令行信息结构体，类型为 PathBuf
 pub struct Config {
@@ -50,7 +71,7 @@ impl Config {
     }
 }
 
-pub fn run(mut config: Config) -> Result<ClocResult, Box<dyn Error>> {
+pub fn run(mut config: Config) -> Result<ClocResult, ClocError> {
     // 将目录递归展开，使用队列(crates.io 中有 "walkDir" 这个 crate，这里我们先手动实现)
     let mut queue: VecDeque<PathBuf> = VecDeque::new();
     for i in config.dir_path.iter() {
@@ -74,7 +95,7 @@ pub fn run(mut config: Config) -> Result<ClocResult, Box<dyn Error>> {
     // Ok(calc_file(config)?)
 }
 
-pub fn calc_file(config: Config) -> Result<ClocResult, Box<dyn Error>> {
+pub fn calc_file(config: Config) -> Result<ClocResult, ClocError> {
     let mut cloc_result = ClocResult::new();
     let time_start = Instant::now();
 
@@ -85,31 +106,45 @@ pub fn calc_file(config: Config) -> Result<ClocResult, Box<dyn Error>> {
             cloc_result.ignored_file_num += 1;
             println!("忽略文件：{:?}", file);
         } else {
-            if file_type[file_type.len() - 1] == "rs" {
-                println!("该文件为 Rust 文件");
-                cloc_result.file_type.insert("Rust".to_string());
+            let language_type = file_type[file_type.len() - 1];
+            // 如果是不支持的语言，返回 FileNotSupported 错误
+            if !LANGUAGE_TYPE.contains_key(language_type) {
+                return Err(ClocError::FileNotSupported);
             }
-            cloc_result.file_num += 1;
+            // 如果 cloc_result 中第一次出现该类型语言，则新建对应的结构体
+            if !cloc_result.file_type.contains_key(language_type) {
+                let new_type_result = TypeResult::new(LANGUAGE_TYPE[language_type].clone());
+                cloc_result
+                    .file_type
+                    .insert(language_type.to_string(), new_type_result);
+            }
+            // 处理该文件，统计代码信息，并将结果写入结构体
+            add_to_result(file, language_type, &mut cloc_result);
         }
-    }
-
-    for item in config.file_path.iter() {
-        println!("当前文件为 {:?}", item);
-        let file = std::fs::read_to_string(item)?;
-        // thread::sleep(Duration::new(1, 0));
-        cloc_result.each_file.push(item.clone());
-        let lines = file
-            .lines()
-            .filter(|lines| !lines.trim().is_empty())
-            .count();
-        cloc_result.total_lines += lines;
-        println!("文件 {:?} 的有效代码行数为：{}", item, lines);
     }
 
     let time_duration = Instant::now() - time_start;
     cloc_result.time = time_duration;
     println!("总用时：{:.3?}", time_duration);
     Ok(cloc_result)
+}
+
+// 将遍历到的每一个文件进行统计，加入结果之中
+pub fn add_to_result(file_name: &PathBuf, language_type: &str, cloc_result: &mut ClocResult) -> Result<(), ClocError>{
+    println!("当前文件为 {:?}", file_name);
+    let file = read_to_string(file_name)?;
+    // thread::sleep(Duration::new(1, 0));
+    cloc_result.each_file.push(file_name.to_path_buf());
+    let lines = file
+        .lines()
+        .filter(|lines| !lines.trim().is_empty())
+        .count();
+        cloc_result.file_type.get_mut(language_type).unwrap().file_nums += 1;
+    // FIXME
+    cloc_result.file_type.get_mut(language_type).unwrap().code_lines = lines;
+    cloc_result.total_lines += lines;
+    println!("文件 {:?} 的有效代码行数为：{}", file_name, lines);
+    Ok(())
 }
 
 // 处理文件后缀，包括检测语言

@@ -24,14 +24,14 @@ fn print_head() {
 
 fn print_body(res: &ClocResult) {
     let code_type = &res.file_type;
-    for typee in code_type {
+    for (typee, type_result) in code_type {
         println!(
             "{:19}{:>15}{:>15}{:>15}{:>15}",
             typee, 
-            res.file_num,
-            res.total_blank,
-            res.total_comment,
-            res.total_lines
+            type_result.file_nums,
+            type_result.blank_lines,
+            type_result.comment_lines,
+            type_result.code_lines
         )
     }
 }
