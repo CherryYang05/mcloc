@@ -87,6 +87,7 @@ pub fn calc_file(config: Config) -> Result<ClocResult, Box<dyn Error>> {
         } else {
             if file_type[file_type.len() - 1] == "rs" {
                 println!("该文件为 Rust 文件");
+                cloc_result.file_type.insert("Rust".to_string());
             }
             cloc_result.file_num += 1;
         }
